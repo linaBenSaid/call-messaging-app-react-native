@@ -1,14 +1,17 @@
 import {
+  Alert,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { TextInput } from "react-native-paper";
 import initApp from "../Config";
-import { serverTimestamp, serverTimeStamp } from "firebase/database";
+import { serverTimestamp, serverTimeStamp, set } from "firebase/database";
 
 export default function Chat(props) {
   const database = initApp.database();
@@ -20,24 +23,33 @@ export default function Chat(props) {
   const roomId = props.route.params.roomId;
   const otherUserId = props.route.params.otherUserId;
   const currentUserId = props.route.params.currentUserId;
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+
+  const [currentUserProfileInfo, setCurrentUserProfileInfo] = useState(null);
+  const [otherUserProfileInfo, setOtherUserProfileInfo] = useState(null);
+  const [otherUserConnected, setOtherUserConnected] = React.useState(false);
 
   const flatListRef = React.useRef();
+  const typingTimeout = React.useRef(null);
+
+  async function loadUserProfilePictures() {
+    try {
+      const currentUserSnap = await database
+        .ref(`profils/${currentUserId}`)
+        .once("value");
+
+      const otherUserSnap = await database
+        .ref(`profils/${otherUserId}`)
+        .once("value");
+
+      setCurrentUserProfileInfo(currentUserSnap.val() || null);
+      setOtherUserProfileInfo(otherUserSnap.val() || null);
+    } catch (error) {
+      console.error("Error loading profile pictures:", error);
+    }
+  }
 
   async function sendMessage() {
-    if (message.trim() === "") return;
-    // try {
-    //   const newMessage = database.ref(`messages/${roomId}`).push();
-    //   await newMessage.set({
-    //     senderId: currentUserId,
-    //     text: message,
-    //     timestamp: serverTimestamp(),
-    //     // timestamp: Date.now(),
-    //   });
-    // } catch (error) {
-    //   console.error("Error sending message:", error);
-    //   alert("Failed to send message: " + error.message);
-    // }
-
     if (message.trim() === "") return;
     try {
       const messagesRef = database.ref(`chatrooms/${roomId}/messages`);
@@ -64,7 +76,41 @@ export default function Chat(props) {
     }
   }
 
+  const handleLongPress = (messageId) => {
+    Alert.alert(
+      "Delete Message",
+      "Are you sure you want to delete this message?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMessage(messageId),
+        },
+      ]
+    );
+  };
+
+  function deleteMessage(messageId) {
+    const messageRef = database.ref(
+      `chatrooms/${roomId}/messages/${messageId}`
+    );
+    messageRef.remove().catch((error) => {
+      console.error("Error deleting message:", error);
+    });
+  }
+
+  function setTyping(isTyping) {
+    database.ref(`chatrooms/${roomId}/${currentUserId}_isTyping`).set(isTyping);
+  }
+
+  function internetCall() {
+    
+  }
+
   useEffect(() => {
+    loadUserProfilePictures();
+
     const messagesRef = database
       .ref(`chatrooms/${roomId}/messages`)
       .orderByChild("timestamp");
@@ -91,11 +137,30 @@ export default function Chat(props) {
   }, [roomId]);
 
   useEffect(() => {
-    if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-    }
-  }, [messages]);
-  // message bubble
+    if (!otherUserId) return;
+
+    const otherUserRef = database.ref(`profils/${otherUserId}/connected`);
+
+    const listener = otherUserRef.on("value", (snapshot) => {
+      const isConnected = snapshot.val() === true;
+      setOtherUserConnected(isConnected);
+    });
+
+    return () => otherUserRef.off("value", listener);
+  }, [otherUserId]);
+
+  useEffect(() => {
+    const otherIsTyping = database.ref(
+      `chatrooms/${roomId}/${otherUserId}_isTyping`
+    );
+    const typingListener = otherIsTyping.on("value", (snapshot) => {
+      const isTyping = snapshot.val();
+      setOtherUserTyping(isTyping);
+    });
+    return () => otherIsTyping.off("value", typingListener);
+  }, [otherUserId, roomId]);
+
+  // message bloc
   const renderItem = ({ item }) => {
     const isMe = item.senderId === currentUserId;
 
@@ -107,77 +172,90 @@ export default function Chat(props) {
     return (
       <View
         style={{
-          flexDirection: "row",
-          justifyContent: isMe ? "flex-end" : "flex-start",
+          flexDirection: isMe ? "row-reverse" : "row",
+          alignItems: "flex-start",
           paddingHorizontal: 10,
           marginVertical: 4,
         }}
       >
-        <View
-          style={{
-            maxWidth: "70%",
-            backgroundColor: isMe ? "#0A8F08" : "#e6e6e6",
-            padding: 10,
-            borderRadius: 12,
+        {/* profile pic */}
+        <Image
+          source={{
+            uri: isMe
+              ? currentUserProfileInfo.profilePicture
+              : otherUserProfileInfo.profilePicture,
           }}
-        >
-          <Text style={{ color: isMe ? "white" : "black" }}>{item.text}</Text>
-
-          {/* TIME BELOW MESSAGE */}
-          <Text
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            marginHorizontal: 6,
+            backgroundColor: "#ddd",
+          }}
+        />
+        <TouchableWithoutFeedback onLongPress={() => handleLongPress(item.key)}>
+          <View
             style={{
-              fontSize: 10,
-              color: isMe ? "white" : "black",
-              opacity: 0.6,
-              marginTop: 4,
-              alignSelf: "flex-end", // time inside message bubble
+              maxWidth: "70%",
+              backgroundColor: isMe ? "#0A8F08" : "#e6e6e6",
+              padding: 10,
+              borderRadius: 12,
             }}
           >
-            {timeString}
-          </Text>
-        </View>
+            <Text style={{ color: isMe ? "white" : "black" }}>{item.text}</Text>
+
+            {/* time */}
+            <Text
+              style={{
+                fontSize: 10,
+                color: isMe ? "white" : "black",
+                opacity: 0.6,
+                marginTop: 4,
+                alignSelf: "flex-end",
+              }}
+            >
+              {timeString}
+            </Text>
+          </View>
+        </TouchableWithoutFeedback>
       </View>
     );
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* 🔵 Header */}
-      <View
-        style={{
-          padding: 15,
-          backgroundColor: "#0A8F08",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
-          {currentUserId}
-        </Text>
+      <View style={{ backgroundColor: "#0A8F08", height: 30 }}></View>
+      {/* Header */}
+      <View style={styles.headerContainer}>
+        <Image
+          source={{ uri: currentUserProfileInfo?.profilePicture }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            marginHorizontal: 6,
+            backgroundColor: "#ddd",
+          }}
+        />
+        <View>
+          <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
+            {otherUserProfileInfo?.prenom} {otherUserProfileInfo?.nom}
+          </Text>
+
+          <Text style={{ color: "white", fontSize: 12 }}>
+            {otherUserConnected ? "Online" : "Offline"}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={() => internetCall()}>
+        <Image
+          source={require("../assets/call_icon.png")}
+          style={{ width: 25, height: 25, marginLeft: "auto" }}
+        />
+        </TouchableOpacity>
       </View>
 
-      {/* 🟢 Chat messages */}
-      {/* <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
-        style={{ flex: 1, padding: 10 }}
-        renderItem={({ item }) => (
-          <View
-            style={{
-              backgroundColor: "#DCF8C6",
-              padding: 10,
-              marginVertical: 5,
-              borderRadius: 7,
-              alignSelf: "flex-start",
-              maxWidth: "80%",
-            }}
-          >
-            <Text>{item.text}</Text>
-          </View>
-        )}
-      /> */}
-
       <View style={{ flex: 1, backgroundColor: "white" }}>
-        {/* 💬 Messages */}
+        {/*  Messages */}
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -185,23 +263,16 @@ export default function Chat(props) {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingTop: 10 }}
-          maintainVisibleContentPosition={{
-            minIndexForVisible: 0,
+          onContentSizeChange={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+            }
           }}
         />
-
-        {/* 📝 Message input */}
-        <View
-          style={{
-            flexDirection: "row",
-            padding: 10,
-            borderTopWidth: 1,
-            borderColor: "#ddd",
-          }}
-        ></View>
+        {otherUserTyping && <Text style={styles.typingBtn}>Typing...</Text>}
       </View>
 
-      {/* 🔻 Input area */}
+      {/*  Input area */}
       <View
         style={{
           flexDirection: "row",
@@ -212,34 +283,68 @@ export default function Chat(props) {
         }}
       >
         <TextInput
-          style={{
-            flex: 1,
-            backgroundColor: "#fff",
-            borderRadius: 20,
-            paddingHorizontal: 15,
-            borderWidth: 1,
-            borderColor: "#ddd",
-          }}
+          style={styles.messageInput}
           placeholder="Type a message..."
           value={message}
-          onChangeText={setMessage}
+          onChangeText={(text) => {
+            setMessage(text);
+
+            setTyping(true);
+
+            if (typingTimeout.current) {
+              clearTimeout(typingTimeout.current);
+            }
+
+            typingTimeout.current = setTimeout(() => {
+              setTyping(false);
+            }, 1500);
+          }}
         />
 
-        <TouchableOpacity
-          onPress={sendMessage}
-          style={{
-            backgroundColor: "#0A8F08",
-            paddingHorizontal: 20,
-            marginLeft: 10,
-            justifyContent: "center",
-            borderRadius: 20,
-          }}
-        >
+        <TouchableOpacity onPress={sendMessage} style={styles.sendMsgBtn}>
           <Text style={{ color: "white", fontWeight: "bold" }}>Send</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ backgroundColor: "#f9f9f9", height: 40 }}></View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  headerContainer: {
+    padding: 15,
+    backgroundColor: "#0A8F08",
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  typingBtn: {
+    color: "gray",
+    marginLeft: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "black",
+    borderRadius: 20,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontWeight: 700,
+    backgroundColor: "#292929ff",
+    color: "#ffffffff",
+  },
+  sendMsgBtn: {
+    backgroundColor: "#0A8F08",
+    paddingHorizontal: 20,
+    marginLeft: 10,
+    justifyContent: "center",
+    borderRadius: 20,
+  },
+  messageInput: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+});

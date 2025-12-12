@@ -1,6 +1,8 @@
 import {
+  Alert,
   FlatList,
   Image,
+  Linking,
   StyleSheet,
   Text,
   TouchableHighlight,
@@ -10,6 +12,7 @@ import {
 import React, { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import app from "../Config";
+import call from "react-native-phone-call";
 
 export default function List(props) {
   const auth = app.auth();
@@ -44,72 +47,79 @@ export default function List(props) {
     if (!snapshot.exists()) {
       // create the room
       await chatroomRef.set({
-        user1IsTyping: false,
-        user2IsTyping: false,
         lastMessage: "",
         lastTimestamp: Date.now(),
       });
-
-      // Add room to each user's list
-      // await db.ref(`usersChatrooms/${chatroomId}`).set(true);
     }
-
     return chatroomId;
+  }
 
-    // const chatroomsRef = app.database().ref("chatrooms");
-
-    // // 1) get all rooms
-    // const snapshot = await chatroomsRef.once("value");
-    // const rooms = snapshot.val() || {};
-
-    // // 2) check if a room already exists
-    // for (let roomId in rooms) {
-    //   const members = rooms[roomId].members;
-    //   if (members[currentUserId] && members[otherUserId]) {
-    //     return roomId; // found existing room
-    //   }
-    // }
-
-    // // 3) otherwise create a room
-    // const newRoomRef = chatroomsRef.push();
-    // const newRoomId = newRoomRef.key;
-
-    // await newRoomRef.set({
-    //   members: {
-    //     [currentUserId]: true,
-    //     [otherUserId]: true,
-    //   },
-    //   lastMessage: "",
-    //   lastTimestamp: Date.now(),
-    // });
-
-    // // Register room for each user
-    // await app
-    //   .database()
-    //   .ref(`usersChatrooms/${currentUserId}/${newRoomId}`)
-    //   .set(true);
-    // await app
-    //   .database()
-    //   .ref(`usersChatrooms/${otherUserId}/${newRoomId}`)
-    //   .set(true);
-
-    // return newRoomId;
+  async function callPhoneNumber(phoneNumber) {
+    try {
+      await Linking.openURL(`tel:${phoneNumber}`);
+    } catch (error) {
+      console.error("Error making call:", error);
+      Alert.alert("Error", "Unable to make a call");
+    }
   }
 
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style="light" />
       <View style={{ backgroundColor: "#93b8ddff", height: 30 }}></View>
-      <Text>List</Text>
+      <View
+        style={{
+          marginTop: 20,
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ fontSize: 24, fontWeight: "bold" }}>Friend List</Text>
+      </View>
       <View style={{ flex: 1, padding: 20 }}>
         <FlatList
           data={data}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.userBox}>
+              <View style={{ marginRight: 10 }}>
+                <Image
+                  source={{ uri: item.profilePicture }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 25,
+                    backgroundColor: "#ccc",
+                  }}
+                />
+
+                {/* green dot */}
+                {item.connected === true && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 2,
+                      right: 2,
+                      width: 12,
+                      height: 12,
+                      borderRadius: 6,
+                      backgroundColor: "limegreen",
+                      borderWidth: 2,
+                      borderColor: "white",
+                    }}
+                  />
+                )}
+              </View>
+
               <Text>{item.nom}</Text>
               <Text>{item.prenom}</Text>
               <Text>{item.numero}</Text>
+
+              <TouchableOpacity onPress={() => callPhoneNumber(item.numero)}>
+                <Image
+                  source={require("../assets/call_icon.png")}
+                  style={styles.icons}
+                />
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
                   const otherUserId = item.id;
@@ -126,12 +136,6 @@ export default function List(props) {
                 }}
               >
                 <Image
-                  source={require("../assets/call_icon.png")}
-                  style={styles.icons}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Image
                   source={require("../assets/messageIcon.png")}
                   style={styles.icons}
                 />
@@ -147,9 +151,23 @@ export default function List(props) {
       >
         <Text
           onPress={() => {
-            auth.signOut().then(() => {
-              props.navigation.replace("Auth");
-            });
+            auth
+              .signOut()
+              .then(() => {
+                try {
+                  app
+                    .database()
+                    .ref("profils/" + currentUserId)
+                    .update({
+                      connected: false,
+                    });
+                } catch (err) {
+                  console.log("Error updating connected status:", err);
+                }
+              })
+              .then(() => {
+                props.navigation.replace("Auth");
+              });
           }}
         >
           Log out
@@ -163,13 +181,13 @@ export default function List(props) {
 const styles = StyleSheet.create({
   userBox: {
     flexDirection: "row",
-    alignItems: "center", 
+    alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#f1f1f1",
     padding: 15,
     marginBottom: 10,
     borderRadius: 8,
-    borderWidth: 1, 
+    borderWidth: 1,
     borderColor: "#ccc",
   },
   icons: {

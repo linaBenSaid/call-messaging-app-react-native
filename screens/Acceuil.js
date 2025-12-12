@@ -3,6 +3,7 @@ import { createMaterialBottomTabNavigator } from "@react-navigation/material-bot
 import React from "react";
 import Add from "./Add";
 import List from "./List";
+import Groups from "./Groups";
 
 export default function Acceuil(props) {
   const Tab = createMaterialBottomTabNavigator();
@@ -14,7 +15,11 @@ export default function Acceuil(props) {
         component={List}
         initialParams={{ currentUserId: currentUserId }}
       />
-      {/* <Tab.Screen name="Groups" component={List} /> */}
+      <Tab.Screen 
+      name="Groups" 
+      component={Groups} 
+      initialParams={{ currentUserId: currentUserId }}
+      />
       <Tab.Screen
         name="Add"
         component={Add}

@@ -41,6 +41,13 @@ export default function Auth(props) {
             onPress={(e) => {
               auth
                 .signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                  const user = userCredential.user;
+                  const uid = user.uid;
+                  database.ref("profils/" + uid).update({
+                    connected: true,
+                  });
+                })
                 .then(() => {
                   props.navigation.navigate("Acceuil", {
                     currentUserId: auth.currentUser.uid,
@@ -77,6 +84,7 @@ export default function Auth(props) {
                   .set({
                     id: uid,
                     email: email,
+                    connected: true,
                   })
                   .then(() => {
                     props.navigation.navigate("Acceuil", {

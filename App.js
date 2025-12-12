@@ -6,6 +6,9 @@ import { enableScreens } from "react-native-screens";
 import Info from "./screens/Info";
 import Acceuil from "./screens/Acceuil";
 import Chat from "./screens/Chat";
+import Groups from "./screens/Groups";
+import SelectUsersScreen from "./screens/SelectUsersScreen";
+import GroupChat from "./screens/GroupChat";
 
 enableScreens();
 const Stack = createNativeStackNavigator();
@@ -21,6 +24,9 @@ export default function App() {
           // options={{headerShown: true}}
         ></Stack.Screen>
         <Stack.Screen name="Chat" component={Chat}></Stack.Screen>
+        <Stack.Screen name="Groups" component={Groups}></Stack.Screen>
+        <Stack.Screen name="SelectUsersScreen" component={SelectUsersScreen}></Stack.Screen>
+        <Stack.Screen name="GroupChat" component={GroupChat}></Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
     // <Auth></Auth>
