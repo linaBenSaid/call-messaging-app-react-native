@@ -7,9 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Modal,
 } from "react-native";
 import app from "../Config";
-import { Modal } from "react-native-paper";
 
 export default function GroupChatScreen(props) {
   const groupId = props.route.params.groupId;
@@ -24,6 +24,8 @@ export default function GroupChatScreen(props) {
 
   const flatListRef = useRef();
   const typingTimeout = useRef(null);
+
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   //group info
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function GroupChatScreen(props) {
         ...snapshot.val()[key],
       }));
 
-      msgs.sort((a, b) => b.timestamp - a.timestamp); // latest at top for inverted list
+      msgs.sort((a, b) => b.timestamp - a.timestamp); 
 
       setMessages(msgs);
     });
@@ -88,7 +90,7 @@ export default function GroupChatScreen(props) {
     return () => ref.off();
   }, []);
 
-  // Listen for typing indicators
+  //  typing indicators
 
   useEffect(() => {
     const ref = app.database().ref(`groupTyping/${groupId}`);
@@ -184,7 +186,7 @@ export default function GroupChatScreen(props) {
     );
   };
 
-  //  Show typing text
+  //   typing text
 
   const typingDisplay =
     typingUsers.length === 1
@@ -221,12 +223,12 @@ export default function GroupChatScreen(props) {
           <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
             {groupInfo.name}
           </Text>
-
-          <Text style={{ color: "white", fontSize: 12 }}>
-            {Object.keys(membersInfo).length} members
-          </Text>
+          <TouchableOpacity onPress={() => setShowMembersModal(true)}>
+            <Text style={{ color: "white", fontSize: 12 }}>
+              {Object.keys(membersInfo).length} members
+            </Text>
+          </TouchableOpacity>
         </View>
-        <View style={{ flex: 1, alignItems: "flex-end" }}></View>
       </View>
 
       {/* MESSAGE LIST */}
@@ -259,8 +261,6 @@ export default function GroupChatScreen(props) {
           value={message}
           onChangeText={(text) => {
             setMessage(text);
-
-            // typing true
             app
               .database()
               .ref(`groupTyping/${groupId}/${currentUserId}`)
@@ -282,6 +282,79 @@ export default function GroupChatScreen(props) {
       </View>
 
       <View style={{ backgroundColor: "#f9f9f9", height: 40 }} />
+      <Modal
+        visible={showMembersModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMembersModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: "80%",
+              maxHeight: "70%",
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 20,
+            }}
+          >
+            <Text
+              style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}
+            >
+              Group Members
+            </Text>
+
+            <FlatList
+              data={Object.values(membersInfo)}
+              keyExtractor={(item) => item.uid}
+              renderItem={({ item }) => (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginVertical: 5,
+                  }}
+                >
+                  <Image
+                    source={{ uri: item.profilePicture }}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: "#ddd",
+                      marginRight: 10,
+                    }}
+                  />
+                  <Text>
+                    {item.prenom} {item.nom}
+                  </Text>
+                </View>
+              )}
+            />
+
+            <TouchableOpacity
+              onPress={() => setShowMembersModal(false)}
+              style={{
+                marginTop: 15,
+                alignSelf: "center",
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                backgroundColor: "#0A8F08",
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "bold" }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

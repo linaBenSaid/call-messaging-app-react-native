@@ -21,14 +21,38 @@ export default function List(props) {
 
   const currentUserId = props.route.params.currentUserId;
 
+  // useEffect(() => {
+  //   ref_all_users.on("value", (snapshot) => {
+  //     var d = [];
+  //     snapshot.forEach((one_user) => {
+  //       d.push(one_user.val());
+  //     });
+  //     setData(d);
+  //   });
+  // }, []);
+
   useEffect(() => {
-    ref_all_users.on("value", (snapshot) => {
-      var d = [];
+    const unsubscribe = ref_all_users.on("value", (snapshot) => {
+      const users = [];
+
       snapshot.forEach((one_user) => {
-        d.push(one_user.val());
+        const user = one_user.val();
+        const userId = one_user.key;
+
+        if (userId === currentUserId) return;
+        if (user.nom === "Deleted") return;
+        if (user.disabled === true) return;
+
+        users.push({
+          id: userId,
+          ...user,
+        });
       });
-      setData(d);
+
+      setData(users);
     });
+
+    return () => ref_all_users.off("value", unsubscribe);
   }, []);
 
   async function startChatWith(currentUserId, otherUserId) {
@@ -144,36 +168,6 @@ export default function List(props) {
           )}
         />
       </View>
-      <TouchableHighlight
-        activeOpacity={0.5}
-        underlayColor="navy"
-        title="log out"
-      >
-        <Text
-          onPress={() => {
-            auth
-              .signOut()
-              .then(() => {
-                try {
-                  app
-                    .database()
-                    .ref("profils/" + currentUserId)
-                    .update({
-                      connected: false,
-                    });
-                } catch (err) {
-                  console.log("Error updating connected status:", err);
-                }
-              })
-              .then(() => {
-                props.navigation.replace("Auth");
-              });
-          }}
-        >
-          Log out
-        </Text>
-      </TouchableHighlight>
-      <Text>User ID: {currentUserId}</Text>
     </View>
   );
 }

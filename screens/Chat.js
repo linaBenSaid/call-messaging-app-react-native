@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  TextInput,
 } from "react-native";
 import React, { useEffect, useState } from "react";
-import { TextInput } from "react-native-paper";
 import initApp from "../Config";
 import { serverTimestamp, serverTimeStamp, set } from "firebase/database";
 
@@ -18,8 +18,7 @@ export default function Chat(props) {
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  // const currentUserId = "Linabs";
-  // const roomId = "chat_room_1";
+
   const roomId = props.route.params.roomId;
   const otherUserId = props.route.params.otherUserId;
   const currentUserId = props.route.params.currentUserId;
@@ -102,10 +101,6 @@ export default function Chat(props) {
 
   function setTyping(isTyping) {
     database.ref(`chatrooms/${roomId}/${currentUserId}_isTyping`).set(isTyping);
-  }
-
-  function internetCall() {
-    
   }
 
   useEffect(() => {
@@ -246,12 +241,6 @@ export default function Chat(props) {
             {otherUserConnected ? "Online" : "Offline"}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => internetCall()}>
-        <Image
-          source={require("../assets/call_icon.png")}
-          style={{ width: 25, height: 25, marginLeft: "auto" }}
-        />
-        </TouchableOpacity>
       </View>
 
       <View style={{ flex: 1, backgroundColor: "white" }}>
@@ -346,5 +335,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: "#ddd",
+    height: 45,
   },
 });

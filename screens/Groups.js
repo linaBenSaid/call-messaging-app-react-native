@@ -1,4 +1,5 @@
 import {
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -40,6 +41,43 @@ export default function Groups(props) {
 
     return () => ref.off();
   }, []);
+
+  const handleLeaveGroup = (groupId, groupName) => {
+    Alert.alert("Leave Group", `Do you want to leave "${groupName}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Leave",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await app
+              .database()
+              .ref(`groupMembers/${groupId}/${currentUserId}`)
+              .remove();
+
+            await app
+              .database()
+              .ref(`userGroups/${currentUserId}/${groupId}`)
+              .remove();
+
+            const membersSnap = await app
+              .database()
+              .ref(`groupMembers/${groupId}`)
+              .once("value");
+
+            if (!membersSnap.exists()) {
+              await app.database().ref(`groups/${groupId}`).remove();
+            }
+
+            Alert.alert("Left Group", `You left "${groupName}".`);
+          } catch (err) {
+            console.log("Leave group failed:", err);
+            Alert.alert("Error", "Could not leave the group.");
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={{ flex: 1, padding: 20 }}>
@@ -87,6 +125,7 @@ export default function Groups(props) {
                 groupId: item.id,
               })
             }
+            onLongPress={() => handleLeaveGroup(item.id, item.name)}
           >
             <Text style={{ fontSize: 18, fontWeight: "500" }}>{item.name}</Text>
           </TouchableOpacity>

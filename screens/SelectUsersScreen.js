@@ -21,7 +21,7 @@ export default function SelectUsersScreen({ navigation, route }) {
         }));
 
         // remove yourself
-        setUsers(list.filter((u) => u.id !== currentUserId));
+        setUsers(list.filter((u) => u.id !== currentUserId && u.nom !== "Deleted"));
       }
     });
 

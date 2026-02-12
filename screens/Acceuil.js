@@ -11,7 +11,7 @@ export default function Acceuil(props) {
   return (
     <Tab.Navigator>
       <Tab.Screen
-        name="List"
+        name="Contacts"
         component={List}
         initialParams={{ currentUserId: currentUserId }}
       />
@@ -21,7 +21,7 @@ export default function Acceuil(props) {
       initialParams={{ currentUserId: currentUserId }}
       />
       <Tab.Screen
-        name="Add"
+        name="Profile"
         component={Add}
         initialParams={{ currentUserId: currentUserId }}
       />
